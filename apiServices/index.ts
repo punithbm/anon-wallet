@@ -86,7 +86,7 @@ export const getRelayTransactionStatus = async (taskId: string) => {
 export const getUsdPrice = (): Promise<any[]> => {
   const config = {
     method: "get",
-    url: "https://pro-api.coingecko.com/api/v3/simple/price?ids=matic-network&vs_currencies=usd&x_cg_pro_api_key=CG-3rZprwbEEjFtakNBS8mghn8H",
+    url: "https://pro-api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd&x_cg_pro_api_key=CG-3rZprwbEEjFtakNBS8mghn8H",
     headers: { "Content-Type": "application/json" },
   };
   return new Promise((resolve) => {
@@ -105,7 +105,7 @@ export const getUsdPrice = (): Promise<any[]> => {
 export const getTokens = (address: string) => {
   const config = {
     method: "get",
-    url: `https://api.covalenthq.com/v1/matic-mumbai/address/${address}/balances_v2/`,
+    url: `https://api.covalenthq.com/v1/base-testnet/address/${address}/balances_v2/`,
     headers: { "Content-Type": "application/json", Authorization: "Bearer cqt_rQyRbJkyrfwgp9VJTwWGpqQ4RY8x" },
   };
   return new Promise((resolve) => {
@@ -124,7 +124,7 @@ export const getTokens = (address: string) => {
 export const getActivities = (address: string) => {
   const config = {
     method: "get",
-    url: `https://api.covalenthq.com/v1/matic-mumbai/address/${address}/transactions_v3/page/0/`,
+    url: `https://api.covalenthq.com/v1/base-testnet/address/${address}/transactions_v3/page/0/`,
     headers: { "Content-Type": "application/json", Authorization: "Bearer cqt_rQyRbJkyrfwgp9VJTwWGpqQ4RY8x" },
   };
   return new Promise((resolve) => {

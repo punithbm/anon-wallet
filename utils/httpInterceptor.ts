@@ -3,10 +3,11 @@ import axios, { AxiosError, AxiosInstance, AxiosRequestConfig, AxiosResponse } f
 import { TApiResponse } from "../types";
 import { toastFlashMessage } from ".";
 import { Polygon } from "./chain/polygon";
+import { BaseGoerli } from "./chain/baseGoerli";
 
 const axiosInstance: AxiosInstance = axios.create();
 
-axiosInstance.defaults.baseURL = `${Polygon.info.rpc}`;
+axiosInstance.defaults.baseURL = `${BaseGoerli.info.rpc}`;
 axiosInstance.interceptors.request.use(
   function (config: AxiosRequestConfig) {
     return config;

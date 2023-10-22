@@ -26,6 +26,7 @@ import { SendTx } from "../ui_components/home/Send";
 import { Polygon } from "../utils/chain/polygon";
 
 import { EthersAdapter, SafeAccountConfig, SafeFactory } from "@safe-global/protocol-kit";
+import { BaseGoerli } from "../utils/chain/baseGoerli";
 
 export type THandleStep = {
   handleSteps: (step: number) => void;
@@ -72,11 +73,11 @@ export default function Home() {
 
       const chainConfig = {
         chainNamespace: CHAIN_NAMESPACES.EIP155,
-        chainId: Polygon.chainIdHex,
-        rpcTarget: Polygon.info.rpc,
-        displayName: Polygon.name,
-        blockExplorer: Polygon.explorer.url,
-        ticker: Polygon.symbol,
+        chainId: BaseGoerli.chainIdHex,
+        rpcTarget: BaseGoerli.info.rpc,
+        displayName: BaseGoerli.name,
+        blockExplorer: BaseGoerli.explorer.url,
+        ticker: BaseGoerli.symbol,
         tickerName: "Ethereum",
       };
       const web3auth = new Web3AuthNoModal({

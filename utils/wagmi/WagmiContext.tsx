@@ -1,7 +1,7 @@
 import { connect, fetchBalance, getAccount } from "@wagmi/core";
 import { createContext, ReactNode, useContext } from "react";
 import { ConnectArgs, disconnect, sendTransaction } from "wagmi/actions";
-import { polygonMumbai } from "wagmi/chains";
+import { baseGoerli } from "wagmi/chains";
 import { InjectedConnector } from "wagmi/connectors/injected";
 
 import { WagmiHoc } from ".";
@@ -13,7 +13,7 @@ interface IProps {
 export type TGlobalContextType = {
   connect?: any;
   fetchBalance?: any;
-  polygonMumbai?: any;
+  baseGoerli?: any;
   InjectedConnector?: any;
   getAccount?: any;
   disconnect?: any;
@@ -29,7 +29,7 @@ const WagmiProvider = ({ children }: IProps) => {
       value={{
         connect,
         fetchBalance,
-        polygonMumbai,
+        baseGoerli,
         InjectedConnector,
         getAccount,
         disconnect,
@@ -49,12 +49,12 @@ const WagmiWrapper = ({ children }: IProps) => {
 };
 
 const useWagmi = () => {
-  const { connect, fetchBalance, polygonMumbai, InjectedConnector, getAccount, disconnect } = useContext(WalletContext);
-  const injectConnector = new InjectedConnector({ chains: [polygonMumbai] });
+  const { connect, fetchBalance, baseGoerli, InjectedConnector, getAccount, disconnect } = useContext(WalletContext);
+  const injectConnector = new InjectedConnector({ chains: [baseGoerli] });
   return {
     connect,
     fetchBalance,
-    polygonMumbai,
+    baseGoerli,
     InjectedConnector,
     injectConnector,
     sendTransaction,

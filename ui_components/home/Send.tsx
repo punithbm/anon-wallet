@@ -81,15 +81,14 @@ export const SendTx: FC<ILoadChestComponent> = (props) => {
     getUsdPrice()
       .then(async (res: any) => {
         // @ts-ignore
-        setTokenPrice(res["data"]["matic-network"]["usd"]);
+        setTokenPrice(res["data"]["ethereum"]["usd"]);
         setFromAddress(address);
         const balance = (await getBalance(address)) as any;
         setTokenValue(getTokenFormattedNumber(hexToNumber(balance.result) as unknown as string, 18));
         // @ts-ignore
-        const formatBal = (
-          (hexToNumber(balance.result) / Math.pow(10, 18)) *
-          res["data"]["matic-network"]["usd"]
-        ).toFixed(3);
+        const formatBal = ((hexToNumber(balance.result) / Math.pow(10, 18)) * res["data"]["ethereum"]["usd"]).toFixed(
+          3
+        );
         setPrice(getCurrencyFormattedNumber(formatBal));
         setBalanceInUsd(formatBal);
         setLoading(false);
