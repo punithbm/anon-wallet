@@ -12,7 +12,7 @@ import { Wallet } from "../../utils/wallet";
 import { serializeError } from "eth-rpc-errors";
 
 import { useRouter } from "next/router";
-import { FC, useContext, useEffect, useState } from "react";
+import { FC, useContext, useEffect, useRef, useState } from "react";
 
 import { parseEther } from "viem";
 import { getBalance, getRelayTransactionStatus, getSendTransactionStatus, getUsdPrice } from "../../apiServices";
@@ -66,6 +66,8 @@ export const SendTx: FC<ILoadChestComponent> = (props) => {
   const [trimTxHash, setTxTrimHash] = useState("");
   const [toAddress, setToAddress] = useState("");
   const [openBottomSheet, setOpenBottomSheet] = useState(false);
+  const relayPack = new GelatoRelayPack(process.env.NEXT_PUBLIC_GELATO_RELAY_API_KEY);
+  const isRelayInitiated = useRef(false);
 
   const handleCloseBottomSheet = () => {
     setOpenBottomSheet(false);
@@ -74,8 +76,21 @@ export const SendTx: FC<ILoadChestComponent> = (props) => {
   useEffect(() => {
     if (address) {
       fetchBalance();
+      handleInitWallet();
     }
   }, [address]);
+
+  const safeAccountAbstraction = useRef<AccountAbstraction>();
+
+  const handleInitWallet = async () => {
+    const fromEthProvider = new ethers.providers.Web3Provider(provider);
+    const fromSigner = await fromEthProvider.getSigner();
+    const safeAccountAbs = new AccountAbstraction(fromSigner);
+    await safeAccountAbs.init({ relayPack });
+    safeAccountAbstraction.current = safeAccountAbs;
+    isRelayInitiated.current = true;
+  };
+
   const fetchBalance = async () => {
     setLoading(true);
     getUsdPrice()
@@ -128,28 +143,22 @@ export const SendTx: FC<ILoadChestComponent> = (props) => {
       setChestLoadingText("Initializing wallet and creating link...");
       try {
         setChestLoadingText("Setting up destination signer and address");
-        const destinationAddress = toAddress;
-        setChestLoadingText("Safe contract created");
-        const relayPack = new GelatoRelayPack(process.env.NEXT_PUBLIC_GELATO_RELAY_API_KEY);
-        setChestLoadingText("Initializing account abstraction for transaction relay");
-        const fromEthProvider = new ethers.providers.Web3Provider(provider);
-        const fromSigner = await fromEthProvider.getSigner();
-        const safeAccountAbstraction = new AccountAbstraction(fromSigner);
-        await safeAccountAbstraction.init({ relayPack });
-        setChestLoadingText("Transaction process has begun...");
         const safeTransactionData: MetaTransactionData = {
-          to: destinationAddress,
+          to: "0x2BE773D136B3f354CcdAd7743Bd1Cd8c2D7c69b1",
           data: "0x",
-          value: parseEther(inputValue).toString(),
-          operation: OperationType.Call,
+          value: "554000000000000",
+          operation: 0,
         };
 
         const options: MetaTransactionOptions = {
-          gasLimit: "100000",
+          gasLimit: "1000000",
           isSponsored: true,
         };
 
-        const gelatoTaskId = await safeAccountAbstraction.relayTransaction([safeTransactionData], options);
+        console.log("safeTransactionData", safeTransactionData);
+        console.log("safeAccountAbstraction", safeAccountAbstraction);
+        debugger;
+        const gelatoTaskId = await safeAccountAbstraction?.current?.relayTransaction([safeTransactionData], options);
         console.log("gelatoTaskId ", gelatoTaskId);
         console.log(`https://relay.gelato.digital/tasks/status/${gelatoTaskId}`);
         if (gelatoTaskId) {
