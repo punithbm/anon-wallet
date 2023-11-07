@@ -1,5 +1,6 @@
 import "react-toastify/dist/ReactToastify.css";
 import "./globals.css";
+import { createSafe } from "@instadapp/avocado";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { CHAIN_NAMESPACES, SafeEventEmitterProvider, WALLET_ADAPTERS } from "@web3auth/base";
 import { EthereumPrivateKeyProvider } from "@web3auth/ethereum-provider";
@@ -23,9 +24,13 @@ import { useWagmi } from "../utils/wagmi/WagmiContext";
 import Login from "../ui_components/login/Login";
 import { usePathname } from "next/navigation";
 import { SendTx } from "../ui_components/home/Send";
-import { Polygon } from "../utils/chain/polygon";
+import { TxStatus } from "../ui_components/home";
 
-import { EthersAdapter, SafeAccountConfig, SafeFactory } from "@safe-global/protocol-kit";
+import { IPaymaster, BiconomyPaymaster } from "@biconomy/paymaster";
+import { IBundler, Bundler } from "@biconomy/bundler";
+import { BiconomySmartAccount, BiconomySmartAccountV2, DEFAULT_ENTRYPOINT_ADDRESS } from "@biconomy/account";
+import { getAddress } from "viem";
+import { Polygon } from "../utils/chain/polygon";
 
 export type THandleStep = {
   handleSteps: (step: number) => void;
@@ -170,33 +175,51 @@ export default function Home() {
     }
   };
 
+  const connectWithBiconomy = async (rpcProvider: any) => {
+    try {
+      const web3Provider = rpcProvider;
+      const paymaster = new BiconomyPaymaster({
+        paymasterUrl: "https://paymaster.biconomy.io/api/v1/80001/gtobQPLv-.397a0ea6-298d-4225-bce6-a6fb3024e514",
+      });
+      const bundler: IBundler = new Bundler({
+        bundlerUrl: "https://bundler.biconomy.io/api/v2/80001/nJPK7B3ru.dd7f7861-190d-41bd-af80-6877f74b8f44",
+        chainId: 80001,
+        entryPointAddress: DEFAULT_ENTRYPOINT_ADDRESS,
+      });
+      let wallet = new BiconomySmartAccount({
+        signer: web3Provider.getSigner(),
+        chainId: 80001,
+        bundler: bundler,
+        paymaster: paymaster,
+      });
+      wallet = await wallet.init({
+        accountIndex: 0,
+      });
+      const scw = await wallet.getSmartAccountAddress();
+      dispatch({
+        type: ACTIONS.SET_SMART_ACCOUNT,
+        payload: wallet,
+      });
+      return scw;
+    } catch (error) {
+      setLoader(false);
+      toast.error("Something went wrong");
+      console.error(error);
+    }
+  };
+
   const getAccounts = async () => {
     if (!provider) {
       return;
     }
     try {
-      const contractAddress = deploySafeContract();
+      const ethProvider = new ethers.providers.Web3Provider(provider);
+      const contractAddress = connectWithBiconomy(ethProvider);
       return contractAddress;
     } catch (error) {
       setLoader(false);
       return error;
     }
-  };
-
-  const deploySafeContract = async () => {
-    const ethProvider = new ethers.providers.Web3Provider(provider!);
-    const signer = await ethProvider.getSigner();
-    const ethAdapter = new EthersAdapter({
-      ethers,
-      signerOrProvider: signer || ethProvider,
-    });
-    const safeFactory = await SafeFactory.create({ ethAdapter: ethAdapter });
-    const safeAccountConfig: SafeAccountConfig = {
-      owners: [await signer.getAddress()],
-      threshold: 1,
-    };
-    const safeSdkOwnerPredicted = await safeFactory.predictSafeAddress(safeAccountConfig);
-    return safeSdkOwnerPredicted;
   };
 
   const signOut = async () => {

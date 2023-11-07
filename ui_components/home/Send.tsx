@@ -3,14 +3,6 @@ import "react-toastify/dist/ReactToastify.css";
 import { BigNumber, ethers } from "ethers";
 import Lottie from "lottie-react";
 
-import AccountAbstraction from "@safe-global/account-abstraction-kit-poc";
-import { GelatoRelayPack } from "@safe-global/relay-kit";
-import { MetaTransactionData, MetaTransactionOptions, OperationType } from "@safe-global/safe-core-sdk-types";
-
-import { initWasm } from "@trustwallet/wallet-core";
-import { Wallet } from "../../utils/wallet";
-import { serializeError } from "eth-rpc-errors";
-
 import { useRouter } from "next/router";
 import { FC, useContext, useEffect, useState } from "react";
 
@@ -34,10 +26,7 @@ import BottomSheet from "../bottom-sheet";
 import { TaxAlertBottomSheet, TxStatus } from ".";
 import React from "react";
 
-import { toast } from "react-toastify";
-
-import { EthersAdapter, SafeAccountConfig, SafeFactory } from "@safe-global/protocol-kit";
-import { Polygon } from "../../utils/chain/polygon";
+import { IHybridPaymaster, PaymasterMode, SponsorUserOperationDto } from "@biconomy/paymaster";
 
 export interface ILoadChestComponent {
   provider?: any;
@@ -66,11 +55,16 @@ export const SendTx: FC<ILoadChestComponent> = (props) => {
   const [trimTxHash, setTxTrimHash] = useState("");
   const [toAddress, setToAddress] = useState("");
   const [openBottomSheet, setOpenBottomSheet] = useState(false);
-
+  const handleOpenBottomSheet = () => {
+    setOpenBottomSheet(true);
+  };
   const handleCloseBottomSheet = () => {
     setOpenBottomSheet(false);
   };
-
+  const handleToggle = () => {
+    setToggle(!toggle);
+  };
+  const { sendTransaction } = useWagmi();
   useEffect(() => {
     if (address) {
       fetchBalance();
@@ -121,85 +115,70 @@ export const SendTx: FC<ILoadChestComponent> = (props) => {
       setBtnDisable(true);
     }
   };
+  // const createWallet = async () => {
+  //   const _inputValue = inputValue.replace(/[^\d.]/g, "");
+  //   if (_inputValue) {
+  //     const bgVal = BigNumber.from(parseEther(inputValue));
+  //     const ethProvider = new ethers.providers.Web3Provider(provider);
+  //     const safe = createSafe(ethProvider.getSigner());
+  //     const owner = await safe.getOwnerAddress();
+  //     console.log("ethProvider", ethProvider);
+  //     console.log("owner", owner);
+  //     const safeAddr = await safe.getSafeAddress();
+  //     console.log("safeAddr", safeAddr);
+  //     console.log("safe", safe);
+  //     const signer = safe.getSigner();
+  //     console.log("signer", signer);
+  //     const signedTx = await signer.sendTransaction({
+  //       to: toAddress,
+  //       value: 0,
+  //       chainId: 137,
+  //     });
+  //   }
+  // };
 
   const createWallet = async () => {
     const _inputValue = inputValue.replace(/[^\d.]/g, "");
     if (_inputValue) {
       setTransactionLoading(true);
-      setChestLoadingText("Initializing wallet and creating link...");
+      setChestLoadingText("Initializing...");
+      const amount = ethers.utils.parseEther(_inputValue);
+      const data = "0x";
+      const tx = {
+        to: toAddress,
+        value: amount,
+        data,
+      };
+      const smartAccount = biconomyWallet;
+      let partialUserOp = await smartAccount.buildUserOp([tx]);
+      setChestLoadingText("Setting up smart account...");
+      const biconomyPaymaster = smartAccount.paymaster as IHybridPaymaster<SponsorUserOperationDto>;
+      let paymasterServiceData: SponsorUserOperationDto = {
+        mode: PaymasterMode.SPONSORED,
+        // optional params...
+      };
+
       try {
-        setChestLoadingText("Setting up destination signer and address");
-        const destinationAddress = toAddress;
-        setChestLoadingText("Safe contract created");
-        const relayPack = new GelatoRelayPack(process.env.NEXT_PUBLIC_GELATO_RELAY_API_KEY);
-        setChestLoadingText("Initializing account abstraction for transaction relay");
-        const fromEthProvider = new ethers.providers.Web3Provider(provider);
-        const fromSigner = await fromEthProvider.getSigner();
-        const safeAccountAbstraction = new AccountAbstraction(fromSigner);
-        await safeAccountAbstraction.init({ relayPack });
-        setChestLoadingText("Transaction process has begun...");
-        const safeTransactionData: MetaTransactionData = {
-          to: destinationAddress,
-          data: "0x",
-          value: parseEther(inputValue).toString(),
-          operation: OperationType.Call,
-        };
-
-        const options: MetaTransactionOptions = {
-          gasLimit: "100000",
-          isSponsored: true,
-        };
-
-        const gelatoTaskId = await safeAccountAbstraction.relayTransaction([safeTransactionData], options);
-        console.log("gelatoTaskId ", gelatoTaskId);
-        console.log(`https://relay.gelato.digital/tasks/status/${gelatoTaskId}`);
-        if (gelatoTaskId) {
-          setChestLoadingText("Transaction on its way! Awaiting confirmation...");
-          handleTransactionStatus(gelatoTaskId);
-        }
-      } catch (e: any) {
-        setTransactionLoading(false);
-        const err = serializeError(e);
-        toast.error(err.message);
-        console.log(e, "e");
+        setChestLoadingText("Setting up paymaster...");
+        const paymasterAndDataResponse = await biconomyPaymaster.getPaymasterAndData(
+          partialUserOp,
+          paymasterServiceData
+        );
+        partialUserOp.paymasterAndData = paymasterAndDataResponse.paymasterAndData;
+        const userOpResponse = await smartAccount.sendUserOp(partialUserOp);
+        const transactionDetails = await userOpResponse.wait();
+        // console.log("transactionDetails", transactionDetails);
+        // console.log("txHash", `https://mumbai.polygonscan.com/tx/${transactionDetails.receipt.transactionHash}`);
+        setChestLoadingText("Success! Transaction Processed");
+        setTimeout(() => {
+          setChestLoadingText("Transaction Submitted!");
+          setTxHash(`https://mumbai.polygonscan.com/tx/${transactionDetails.receipt.transactionHash}`);
+          setTxTrimHash(trimAddress(transactionDetails.receipt.transactionHash));
+        }, 2000);
+      } catch (error) {
+        console.error("Error executing transaction:", error);
       }
     }
-  };
-
-  const handleTransactionStatus = (hash: string) => {
-    const intervalInMilliseconds = 2000;
-    const interval = setInterval(() => {
-      getRelayTransactionStatus(hash)
-        .then((res: any) => {
-          if (res) {
-            console.log(res, "res");
-            const task = res.data.task;
-            if (task) {
-              setChestLoadingText("Verifying Transaction Status...");
-              if (task.taskState === "ExecSuccess") {
-                setChestLoadingText("Operation Successful: Transaction Completed!");
-                if (interval !== null) {
-                  clearInterval(interval);
-                }
-              }
-            } else {
-              setTransactionLoading(false);
-              toast.error("Failed to Load Chest. Try Again");
-              if (interval !== null) {
-                clearInterval(interval);
-              }
-            }
-          }
-        })
-        .catch((e) => {
-          setTransactionLoading(false);
-          toast.error(e.message);
-          console.log(e, "e");
-          if (interval !== null) {
-            clearInterval(interval);
-          }
-        });
-    }, intervalInMilliseconds);
   };
 
   return (
@@ -317,9 +296,9 @@ export const SendTx: FC<ILoadChestComponent> = (props) => {
           ​
           <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-full py-4">
             <Button
-              className={`!bg-purple !rounded-3xl !text-base !w-[388px] mx-auto ${btnDisable || !value ? "" : ""} ${
-                !btnDisable && value ? "opacity-100" : "opacity-100"
-              }`}
+              className={`!bg-purple !rounded-3xl !text-base !w-[388px] mx-auto ${
+                btnDisable || !value ? "" : ""
+              } ${!btnDisable && value ? "opacity-100" : "opacity-100"}`}
               variant={"primary"}
               label="Continue"
               onClick={createWallet}
